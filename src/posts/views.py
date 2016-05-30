@@ -2,7 +2,8 @@ from django.contrib import messages
 from django.http import HttpResponse, HttpResponseRedirect, Http404
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.utils import timezone  
+from django.utils import timezone
+from django.db.models import Q
 try:
     # Python 3.x
     from urllib.parse import quote_plus
@@ -62,11 +63,16 @@ def post_list(request):
     queryset_list = Post.objects.active()
     if request.user.is_staff or request.user.is_superuser:
         queryset_list = Post.objects.all()
-    paginator = Paginator(queryset_list, 5)  # Show 5 entries per page
-
+    query = request.GET.get("q")
+    if query:
+        print(query)
+        queryset_list = queryset_list.filter(Q(title__icontains=query)|
+                                             Q(content__icontains=query)|
+                                            Q(user__first_name__icontains=query) |
+                                        Q(user__last_name__icontains=query)).distinct()
     page_request_var = "page"
     page = request.GET.get(page_request_var)
-
+    paginator = Paginator(queryset_list, 5)  # Show 5 entries per page
     try:
         queryset = paginator.page(page)
     except PageNotAnInteger:
@@ -80,7 +86,7 @@ def post_list(request):
         "object_list": queryset,
         "title": "List",
         "page_request_var": page_request_var,
-        "today":today,
+        "today": today,
         }
 
     return render(request, 'post_list.html', context)
